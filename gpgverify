@@ -1,0 +1,84 @@
+#! /usr/bin/env python3
+
+import argparse, os, subprocess
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Validate gpg signatures.")
+    parser.add_argument(
+        "--accept-fp",
+        dest="fp",
+        metavar="fingerprint",
+        required=True,
+        help="gpg fingerprint to accept signatures from"
+    )
+    parser.add_argument(
+        "sigfile",
+        metavar="signature_file",
+        help="The file containing the gpg signature"
+    )
+    parser.add_argument(
+        "datafile",
+        nargs="?",
+        help="The content file that has been signed if signature_file is a detached signature",
+    )
+    return parser.parse_args()
+
+def read_all(fd):
+    buffer = b""
+    while True:
+        block = os.read(fd, 65536)
+        if len(block) == 0:
+            return buffer
+        buffer += block
+
+def run_verify(args):
+    status_r, status_w = os.pipe()
+    gpg = subprocess.Popen(
+        [
+            "gpg",
+            "--batch",
+            "--status-fd", str(status_w),
+            "--verify", args.sigfile
+        ] + ([] if args.datafile is None else [args.datafile]),
+        pass_fds = (status_w,),
+    )
+    os.close(status_w)
+    return read_all(status_r)
+
+class Signature:
+    def __init__(self):
+        self.good = False
+        self.fingerprint = None
+        self.trusted = False
+
+def evaluate_result(args, status_output):
+    lines = status_output.decode().split("\n")
+    signatures = []
+    for line in lines:
+        if not line.startswith("[GNUPG:] "):
+            continue
+        status = line[9:].split(" ")
+        if status[0] == "NEWSIG":
+            signatures.append(Signature())
+        elif status[0] == "GOODSIG" and len(signatures) > 0:
+            signatures[-1].good = True
+        elif status[0] == "VALIDSIG" and len(signatures) > 0 and len(status) >= 11:
+            signatures[-1].fingerprint = status[10]
+        elif status[0] in ("TRUST_FULLY", "TRUST_ULTIMATE") and len(signatures) > 0:
+            signatures[-1].trusted = True
+    found_accepted_sig = False
+    for signature in signatures:
+        if signature.good and signature.trusted and \
+                signature.fingerprint is not None and \
+                signature.fingerprint == args.fp:
+            found_accepted_sig = True
+    exit_code = 0 if found_accepted_sig else 1
+    exit(exit_code)
+
+def main():
+    args = parse_args()
+    status_output = run_verify(args)
+    evaluate_result(args, status_output)
+
+if __name__ == '__main__':
+    main()
