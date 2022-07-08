@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import argparse, os, subprocess
+import argparse, os, subprocess, sys
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate gpg signatures.")
@@ -9,12 +9,18 @@ def parse_args():
         dest="fp",
         metavar="fingerprint",
         required=True,
-        help="gpg fingerprint to accept signatures from"
+        help="gpg fingerprint to accept signatures from",
+    )
+    parser.add_argument(
+        "--decrypt-to",
+        dest="decrypt_location",
+        metavar="decrypted_file",
+        help="Instruct gpg to decrypt the (signed and encrypted) file instead of just validating a signature. Store the result at the specified location.",
     )
     parser.add_argument(
         "sigfile",
         metavar="signature_file",
-        help="The file containing the gpg signature"
+        help="The file containing the gpg signature",
     )
     parser.add_argument(
         "datafile",
@@ -33,12 +39,16 @@ def read_all(fd):
 
 def run_verify(args):
     status_r, status_w = os.pipe()
+    operation = ["--verify"]
+    if args.decrypt_location is not None:
+        operation = ["--decrypt", "--output", args.decrypt_location]
     gpg = subprocess.Popen(
         [
             "gpg",
             "--batch",
             "--status-fd", str(status_w),
-            "--verify", args.sigfile
+        ] + operation + [
+            args.sigfile,
         ] + ([] if args.datafile is None else [args.datafile]),
         pass_fds = (status_w,),
     )
@@ -72,11 +82,24 @@ def evaluate_result(args, status_output):
                 signature.fingerprint is not None and \
                 signature.fingerprint == args.fp:
             found_accepted_sig = True
+    if not found_accepted_sig and args.decrypt_location is not None:
+        # Delete a decrypted file with invalid signature to ensure, it will not
+        # be used.
+        try:
+            os.unlink(args.decrypt_location)
+        except FileNotFoundError:
+            pass
     exit_code = 0 if found_accepted_sig else 1
     exit(exit_code)
 
+def validate_args(args):
+    if args.decrypt_location is not None and os.path.isfile(args.decrypt_location):
+        print("Error: output file already exists", file=sys.stderr)
+        exit(1)
+
 def main():
     args = parse_args()
+    validate_args(args)
     status_output = run_verify(args)
     evaluate_result(args, status_output)
 

@@ -36,3 +36,13 @@ For detached signature, you give two arguments: First the signature file, second
 ```sh
 gpgverify --accept-fp 0123456789abcdef0123456789abcdef01234567 somefile.gpg somefile && echo VALID || echo INVALID
 ```
+
+## Validating encrypted files
+
+Use the `--decrypt-to` option if the given file is not only signed but also encrypted. (Asymmetrically with a key you own the private part)
+
+```sh
+gpgverify --accept-fp 0123456789abcdef0123456789abcdef01234567 --decrypt-to decryptedfile encryptedfile.gpg && echo VALID || echo INVALID
+```
+
+When decrypting, gpgverify will delete the output file before terminating, if it considers the signature invalid.
