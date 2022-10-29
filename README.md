@@ -1,4 +1,4 @@
-Check gpg signatures in an automated way, for example in scripts.
+Check OpenPGP signatures in an automated way, for example in scripts.
 
 # Motivation
 
