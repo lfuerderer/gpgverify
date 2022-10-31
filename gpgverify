@@ -59,7 +59,7 @@ class Signature:
     def __init__(self):
         self.good = False
         self.fingerprint = None
-        self.trusted = False
+        self.key_validity = False
 
 def evaluate_result(args, status_output):
     lines = status_output.decode().split("\n")
@@ -75,10 +75,10 @@ def evaluate_result(args, status_output):
         elif status[0] == "VALIDSIG" and len(signatures) > 0 and len(status) >= 11:
             signatures[-1].fingerprint = status[10]
         elif status[0] in ("TRUST_FULLY", "TRUST_ULTIMATE") and len(signatures) > 0:
-            signatures[-1].trusted = True
+            signatures[-1].key_validity = True
     found_accepted_sig = False
     for signature in signatures:
-        if signature.good and signature.trusted and \
+        if signature.good and signature.key_validity and \
                 signature.fingerprint is not None and \
                 signature.fingerprint == args.fp:
             found_accepted_sig = True
