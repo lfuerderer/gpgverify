@@ -27,7 +27,11 @@ The [gpgv](https://www.gnupg.org/documentation/manuals/gnupg/gpgv.html) command 
 gpgverify --accept-fp 0123456789abcdef0123456789abcdef01234567 somefile.gpg && echo VALID || echo INVALID
 ```
 
-Simple as that, specify the fingerprint of the key you expect to have signed and tell the filename. If the given key is expired or unvalidated, the signature is considered invalid.
+Simple as that, specify the fingerprint of the key you expect to have signed and tell the filename. If the given key is expired or revoked, the signature is considered invalid.
+
+| :exclamation: Attention! |
+|---|
+| Currently, the `--accept-fp` option will also fail for unvalidated keys, **but this will change in a future version!** <br> In future, if you specify a key fingerprint, it will be assumed that you already checked its validity. |
 
 ## Detached signature
 
